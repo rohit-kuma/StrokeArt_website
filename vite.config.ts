@@ -7,5 +7,5 @@ export default defineConfig({
   // IMPORTANT: You MUST replace 'your-repo-name' with the name of your GitHub repository.
   // For example, if your repository URL is https://github.com/your-username/art-institute-site,
   // you should change the base to: '/art-institute-site/'
-  base: '/your-repo-name/',
+  base: '/StrokeArt_website/',
 })
