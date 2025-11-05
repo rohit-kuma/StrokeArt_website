@@ -4,49 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Stroke Art Institute</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              serif: ['Lora', 'serif'],
-              sans: ['Montserrat', 'sans-serif'],
-            },
-            colors: {
-              'brand-background': '#F5F3FF', // Light violet
-              'brand-text': '#111827',     // Dark slate gray
-              'brand-primary': '#480EAB',   // Deep purple (user requested)
-              'brand-secondary': '#EDE9FE',// Lighter violet
-              'brand-accent': '#8B5CF6',    // Vibrant lighter purple
-            }
-          }
-        }
-      }
-    </script>
   <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.552.0",
-    "framer-motion": "https://aistudiocdn.com/framer-motion@^11.4.1"
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "vite": "https://aistudiocdn.com/vite@^7.2.0",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5"
   }
 }
 </script>
-<!-- Add Babel Standalone for in-browser JSX/TSX transpilation -->
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-brand-background text-brand-text font-sans">
+  <body>
     <div id="root"></div>
-    <!-- Instruct Babel to use React and TypeScript presets -->
-    <script type="text/babel" data-presets="react,typescript" data-type="module" src="./index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
