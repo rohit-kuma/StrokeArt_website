@@ -1,4 +1,4 @@
-//Version 4.0.2
+//Version 4.0.3
 //for trigger installation
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
@@ -190,7 +190,31 @@ function onEdit(e) {
   /*If checbox are set, 'a' is written*/
   const sheet = e.source.getActiveSheet();
   const editedRange = e.range;
+  
   handleCheckboxLogic(sheet, editedRange.getRow(), editedRange.getColumn());
+}
+
+function handleCheckboxLogic(sheet, row, col) {
+  if (row < 6 || row > 156 || col < 45 || col > 50) return;
+
+  const dayClicked = sheet.getRange(5, col).getValue();
+  const isChecked = sheet.getRange(row, col).getValue() === true;
+
+  const headers = sheet.getRange(4, 3, 1, 31).getValues()[0];
+  headers.forEach((header, i) => {
+    if (header === dayClicked) {
+      const targetCell = sheet.getRange(row, i + 3);
+      const currentValue = targetCell.getValue();
+      const isSafeToUpdate = currentValue === '' || currentValue === 'a';
+      if (isSafeToUpdate) {
+        targetCell.setValue(isChecked ? 'a' : '');
+      }
+    }
+  });
+
+  const checkboxValues = sheet.getRange(row, 45, 1, 6).getValues()[0];
+  const checkedCount = checkboxValues.filter(val => val === true).length;
+  sheet.getRange(row, 35).setValue(checkedCount * 4);
 }
 function capitalizeCasePaymentMethod(e) {
   const editedRange = e.range;
@@ -237,7 +261,7 @@ function nameUpdate(e) {
   }
 }
 function weekDaySeq(e) {
-  const range = e.range;
+  const editedRange = e.range;
   const sheet = e.source.getActiveSheet();
 
   if (editedRange.getA1Notation() === 'C4') {
@@ -281,13 +305,12 @@ function weekDaySeq(e) {
 }
 function validateDateFormatCell(e) {
   const range = e.range;
-  const sheet = e.source.getActiveSheet();
 
   const col = range.getColumn();
   const row = range.getRow();
 
   // Only validate if cell is within AP6:AQ153
-  if (col < 42 || col > 43 || row < 6 || row > 153) return;
+  if (col < 41 || col > 42 || row < 6 || row > 153) return;
 
   const cellValue = range.getValue();
   const cellA1 = range.getA1Notation();
@@ -309,33 +332,13 @@ function validateDateFormatCell(e) {
   if (originalInput !== expectedFormat) {
     range.setBackground('#FFCCCC');
     SpreadsheetApp.getActiveSpreadsheet().toast(`❌ Wrong format in ${cellA1}. Use exactly "5 Nov 2025"`);
-  } else {
-    range.setBackground(null); // Reset background if valid
+  }
+  else{
+    const defaultColor = e.source.getActiveSheet().getRange('A1').getBackground();
+    range.setBackground(defaultColor);
   }
 }
 
-function handleCheckboxLogic(sheet, row, col) {
-  if (row < 6 || row > 156 || col < 45 || col > 50) return;
-
-  const dayClicked = sheet.getRange(5, col).getValue();
-  const isChecked = sheet.getRange(row, col).getValue() === true;
-
-  const headers = sheet.getRange(4, 3, 1, 31).getValues()[0];
-  headers.forEach((header, i) => {
-    if (header === dayClicked) {
-      const targetCell = sheet.getRange(row, i + 3);
-      const currentValue = targetCell.getValue();
-      const isSafeToUpdate = currentValue === '' || currentValue === 'a';
-      if (isSafeToUpdate) {
-        targetCell.setValue(isChecked ? 'a' : '');
-      }
-    }
-  });
-
-  const checkboxValues = sheet.getRange(row, 45, 1, 6).getValues()[0];
-  const checkedCount = checkboxValues.filter(val => val === true).length;
-  sheet.getRange(row, 35).setValue(checkedCount * 4);
-}
 
 function formatDateRange() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
