@@ -41,10 +41,12 @@
 </script>
 <!-- Add Babel Standalone for in-browser JSX/TSX transpilation -->
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-brand-background text-brand-text font-sans">
     <div id="root"></div>
     <!-- Instruct Babel to use React and TypeScript presets -->
     <script type="text/babel" data-presets="react,typescript" data-type="module" src="./index.tsx"></script>
-  </body>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>
