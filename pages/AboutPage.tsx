@@ -1,6 +1,6 @@
 import React from 'react';
-import PageHeader from '../components/PageHeader';
-import AnimatedElement from '../components/AnimatedElement';
+import PageHeader from '../components/PageHeader.tsx';
+import AnimatedElement from '../components/AnimatedElement.tsx';
 
 const AboutPage: React.FC = () => {
   return (

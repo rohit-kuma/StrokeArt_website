@@ -1,8 +1,8 @@
 import React from 'react';
-import PageHeader from '../components/PageHeader';
-import { PORTFOLIO_DATA } from '../constants';
-import type { PortfolioItem } from '../types';
-import AnimatedElement from '../components/AnimatedElement';
+import PageHeader from '../components/PageHeader.tsx';
+import { PORTFOLIO_DATA } from '../constants.ts';
+import type { PortfolioItem } from '../types.ts';
+import AnimatedElement from '../components/AnimatedElement.tsx';
 
 const PortfolioCard: React.FC<{ item: PortfolioItem }> = ({ item }) => (
   <div className="group relative overflow-hidden rounded-lg shadow-lg">

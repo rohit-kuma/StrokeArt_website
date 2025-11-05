@@ -1,8 +1,8 @@
 import React from 'react';
-import PageHeader from '../components/PageHeader';
-import { COURSES_DATA } from '../constants';
-import type { Course } from '../types';
-import AnimatedElement from '../components/AnimatedElement';
+import PageHeader from '../components/PageHeader.tsx';
+import { COURSES_DATA } from '../constants.ts';
+import type { Course } from '../types.ts';
+import AnimatedElement from '../components/AnimatedElement.tsx';
 
 const CourseCard: React.FC<{ course: Course }> = ({ course }) => (
   <div className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col group transition-transform duration-300 hover:-translate-y-2 h-full">

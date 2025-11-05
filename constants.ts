@@ -1,4 +1,4 @@
-import type { Course, GalleryImage, Exhibition, PortfolioItem } from './types';
+import type { Course, GalleryImage, Exhibition, PortfolioItem } from './types.ts';
 
 export interface Testimonial {
   id: number;

@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import PageHeader from '../components/PageHeader';
-import { GALLERY_IMAGES } from '../constants';
-import Lightbox from '../components/Lightbox';
-import AnimatedElement from '../components/AnimatedElement';
+import PageHeader from '../components/PageHeader.tsx';
+import { GALLERY_IMAGES } from '../constants.ts';
+import Lightbox from '../components/Lightbox.tsx';
+import AnimatedElement from '../components/AnimatedElement.tsx';
 import { motion } from 'framer-motion';
 
 const categories = ['All', 'Portraits', 'Abstract', 'Nature'];

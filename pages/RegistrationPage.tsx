@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import PageHeader from '../components/PageHeader';
-import { COURSES_DATA } from '../constants';
-import AnimatedElement from '../components/AnimatedElement';
+import PageHeader from '../components/PageHeader.tsx';
+import { COURSES_DATA } from '../constants.ts';
+import AnimatedElement from '../components/AnimatedElement.tsx';
 
 const RegistrationPage: React.FC = () => {
   const [formData, setFormData] = useState({

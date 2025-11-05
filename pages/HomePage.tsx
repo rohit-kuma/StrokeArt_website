@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { GALLERY_IMAGES, COURSES_DATA, TESTIMONIALS_DATA } from '../constants';
+import { GALLERY_IMAGES, COURSES_DATA, TESTIMONIALS_DATA } from '../constants.ts';
 import { ArrowRight, Brush, Heart, Users, Star, ChevronLeft, ChevronRight } from 'lucide-react';
-import AnimatedElement from '../components/AnimatedElement';
+import AnimatedElement from '../components/AnimatedElement.tsx';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const heroImages = [
@@ -17,7 +17,6 @@ const HomePage: React.FC = () => {
   const featuredCourses = COURSES_DATA.slice(0, 3);
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  // FIX: Replaced NodeJS.Timeout with ReturnType<typeof setTimeout> for browser compatibility.
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetTimeout = () => {

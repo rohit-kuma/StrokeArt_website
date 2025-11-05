@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import PageHeader from '../components/PageHeader';
+import PageHeader from '../components/PageHeader.tsx';
 import { Mail, Phone, MapPin } from 'lucide-react';
-import { COURSES_DATA } from '../constants';
-import AnimatedElement from '../components/AnimatedElement';
+import { COURSES_DATA } from '../constants.ts';
+import AnimatedElement from '../components/AnimatedElement.tsx';
 
 const ContactPage: React.FC = () => {
   const [formData, setFormData] = useState({

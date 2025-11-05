@@ -1,8 +1,8 @@
 import React from 'react';
-import PageHeader from '../components/PageHeader';
-import { EXHIBITIONS_DATA } from '../constants';
-import type { Exhibition } from '../types';
-import AnimatedElement from '../components/AnimatedElement';
+import PageHeader from '../components/PageHeader.tsx';
+import { EXHIBITIONS_DATA } from '../constants.ts';
+import type { Exhibition } from '../types.ts';
+import AnimatedElement from '../components/AnimatedElement.tsx';
 
 const ExhibitionCard: React.FC<{ exhibition: Exhibition }> = ({ exhibition }) => (
   <div className="flex flex-col md:flex-row items-center gap-8 bg-white p-6 rounded-lg shadow-md overflow-hidden">

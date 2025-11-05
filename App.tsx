@@ -1,18 +1,17 @@
-
 import React, { Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import Header from './components/Header';
-import Footer from './components/Footer';
-import ScrollToTop from './components/ScrollToTop';
+import Header from './components/Header.tsx';
+import Footer from './components/Footer.tsx';
+import ScrollToTop from './components/ScrollToTop.tsx';
 
-const HomePage = lazy(() => import('./pages/HomePage'));
-const AboutPage = lazy(() => import('./pages/AboutPage'));
-const CoursesPage = lazy(() => import('./pages/CoursesPage'));
-const GalleriesPage = lazy(() => import('./pages/GalleriesPage'));
-const ExhibitionsPage = lazy(() => import('./pages/ExhibitionsPage'));
-const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
-const ContactPage = lazy(() => import('./pages/ContactPage'));
-const RegistrationPage = lazy(() => import('./pages/RegistrationPage'));
+const HomePage = lazy(() => import('./pages/HomePage.tsx'));
+const AboutPage = lazy(() => import('./pages/AboutPage.tsx'));
+const CoursesPage = lazy(() => import('./pages/CoursesPage.tsx'));
+const GalleriesPage = lazy(() => import('./pages/GalleriesPage.tsx'));
+const ExhibitionsPage = lazy(() => import('./pages/ExhibitionsPage.tsx'));
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage.tsx'));
+const ContactPage = lazy(() => import('./pages/ContactPage.tsx'));
+const RegistrationPage = lazy(() => import('./pages/RegistrationPage.tsx'));
 
 const App: React.FC = () => {
   return (
