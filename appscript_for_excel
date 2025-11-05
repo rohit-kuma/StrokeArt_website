@@ -1,0 +1,581 @@
+//Version 4.0.2
+//for trigger installation
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('⚙️ Setup')
+    .addItem('Install Triggers', 'installTriggers')
+    .addToUi();
+  ui.createMenu('📧 Mail Actions')
+    .addItem('Class Completion Reminder', 'sendClassCompletionReminderEmails')
+    .addItem('Payment Due Date Alert', 'sendPaymentDueDateAlertEmails')
+    .addToUi();
+
+  //Reset Attendance Start
+  ui.createMenu('Attendance Tools')
+    .addItem('Reset Attendance', 'confirmResetAttendance')
+    .addToUi();
+  //Reset Attendance End
+
+  // Auto-install if not already present
+  const triggers = ScriptApp.getProjectTriggers();
+  const isInstalled = triggers.some(trigger =>
+    trigger.getHandlerFunction() === 'onEditHandler' &&
+    trigger.getEventType() === ScriptApp.EventType.ON_EDIT
+  );
+
+  if (!isInstalled) {
+    installTriggers(); // Automatically installs the trigger
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Trigger auto-installed on open');
+  }
+}
+
+//Reset Attendance Start
+function confirmResetAttendance() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.alert(
+    '⚠️ Confirm Reset',
+    'Do you really want to reset the attendance?\n\nThis will clear all values and toggle checkboxes.',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (response === ui.Button.YES) {
+    resetAttendance();
+  } else {
+    ui.alert('✅ Reset cancelled. No changes were made.');
+  }
+}
+
+function resetAttendance() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const ui = SpreadsheetApp.getUi();
+
+  // Show initial toast
+  SpreadsheetApp.getActiveSpreadsheet().toast('Starting attendance reset...', 'Progress', 3);
+
+  // 1️⃣ Clear values
+  sheet.getRange('C6:AG153').clearContent();
+
+  // 2️⃣ Toggle checkboxes
+  const checkboxRange = sheet.getRange('AS6:AX153');
+  const values = checkboxRange.getValues();
+  const totalRows = values.length;
+
+  for (let row = 0; row < totalRows; row++) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(`Resetting row ${row + 6} of 153...`, 'Progress', 3);
+
+    for (let col = 0; col < values[0].length; col++) {
+      if (values[row][col] === true) {
+        const cell = checkboxRange.getCell(row + 1, col + 1);
+        handleCheckboxLogic(sheet, row + 6, col + 45); // Adjusted to actual sheet row/col
+      }
+    }
+  }
+
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Attendance reset complete.', 'Done', 5);
+  ui.alert('✅ Attendance has been reset.');
+}
+//Reset Attendance End
+
+function installTriggers() {
+  const ss = SpreadsheetApp.getActive();
+  const ui = SpreadsheetApp.getUi();
+
+  // Check if trigger already exists
+  const triggers = ScriptApp.getProjectTriggers();
+  const alreadyInstalled = triggers.some(trigger =>
+    trigger.getHandlerFunction() === 'onEditHandler' &&
+    trigger.getEventType() === ScriptApp.EventType.ON_EDIT
+  );
+
+  const logSheetName = 'TriggerLog';
+  let logSheet = ss.getSheetByName(logSheetName);
+  if (!logSheet) {
+    logSheet = ss.insertSheet(logSheetName);
+    logSheet.appendRow(['Timestamp', 'User', 'Status']);
+  }
+
+  if (alreadyInstalled) {
+    logSheet.getRange('C1').setValue('Trigger Active ✅');
+    ui.alert('⚠️ Trigger already installed.\n\nStatus updated in TriggerLog.');
+    return;
+  }
+
+  // Install trigger
+  ScriptApp.newTrigger('onEditHandler')
+    .forSpreadsheet(ss)
+    .onEdit()
+    .create();
+
+  // Log installation
+  logSheet.appendRow([new Date(), Session.getActiveUser().getEmail(), 'Trigger Installed']);
+  logSheet.getRange('C1').setValue('Trigger Active ✅');
+
+  // Confirmation dialog
+  ui.alert('✅ Trigger installed successfully!\n\nYour sheet is now ready to send emails on checkbox edits.');
+}
+function onEditHandler(e) {
+  const editedRange = e.range;
+
+  //Mail Start for sendPaymentDueDateAlertEmails sendClassCompletionReminderEmails
+  {
+    const sheet = e.source.getActiveSheet();
+    const range = e.range;
+    const cell = range.getA1Notation();
+    const value = range.getValue();
+    if (cell === 'AZ4' && value === true) {
+      const ui = SpreadsheetApp.getUi();
+      const response = ui.alert(
+        '⚠️ Confirm Send Mail',
+        'Do you really want to send payement due date alert?',
+        ui.ButtonSet.YES_NO
+      );
+
+      if (response === ui.Button.YES) {
+        sendPaymentDueDateAlertEmails();
+      } else {
+        ui.alert('✅ Send cancelled.');
+      }
+    }
+
+    if (cell === 'BC4' && value === true) {
+      const ui = SpreadsheetApp.getUi();
+      const response = ui.alert(
+        '⚠️ Confirm Send Mail',
+        'Do you really want to send class completion reminder?',
+        ui.ButtonSet.YES_NO
+      );
+
+      if (response === ui.Button.YES) {
+        sendClassCompletionReminderEmails();
+      } else {
+        ui.alert('✅ Send cancelled.');
+      }
+    }
+
+  }
+  //Mail End
+
+  // Send transaction confirmation email if BB is checked
+  if (editedRange.getColumn() === 54 && editedRange.getValue() === true && editedRange.getRow() >= 6 && editedRange.getRow() <= 156) {
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert(
+      '⚠️ Confirm Send Mail',
+      'Do you really want to send transaction confirmation Email?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (response === ui.Button.YES) {
+      sendTransactionConfirmationMail(e);
+    } else {
+      ui.alert('✅ Send cancelled.');
+    }
+  }
+}
+
+//End
+
+function onEdit(e) {
+  //Validate Date cell AP6:AQ153
+  validateDateFormatCell(e);
+
+  //Name update
+  nameUpdate(e);
+
+  // Auto-fill weekday sequence from C4
+  weekDaySeq(e);
+
+  // Capitalize all letters in AQ6:AQ156 on edit in payment method
+  capitalizeCasePaymentMethod(e);
+
+  /*If checbox are set, 'a' is written*/
+  const sheet = e.source.getActiveSheet();
+  const editedRange = e.range;
+  handleCheckboxLogic(sheet, editedRange.getRow(), editedRange.getColumn());
+}
+function capitalizeCasePaymentMethod(e) {
+  const editedRange = e.range;
+  if (editedRange.getColumn() === 43 && editedRange.getRow() >= 6 && editedRange.getRow() <= 156) {
+    const value = editedRange.getValue();
+    if (typeof value === 'string') {
+      editedRange.setValue(value.toUpperCase());
+    }
+  }
+}
+function nameUpdate(e) {
+  const sheet = e.source.getActiveSheet();
+  const editedRange = e.range;
+  if (editedRange.getColumn() === 2 && editedRange.getRow() >= 6 && editedRange.getRow() <= 156) {
+    let rawName = editedRange.getValue();
+    const cell = sheet.getRange(editedRange.getRow(), 2);
+    const namePattern = /^[A-Za-z ]{4,}$/;
+
+    if (typeof rawName === 'string') {
+      // Clean and format name
+      let cleanedName = rawName.trim().replace(/\s+/g, ' ');
+      cleanedName = cleanedName
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+
+      // Validate cleaned name
+      if (namePattern.test(cleanedName)) {
+        cell.setValue(cleanedName); // Update cell with formatted name
+        cell.setBackground(null);
+        cell.setComment(null);
+        cell.setBackground('#FFC7CE'); // Light Red
+
+        // Sort rows 6–156 by column B
+        const sortRange = sheet.getRange(6, 2, 151, sheet.getLastColumn() - 1);
+        sortRange.sort({ column: 2, ascending: true });
+      }
+      else {
+        // Invalid name: show warning
+        cell.setBackground('#cc0000'); // Light red
+        cell.setComment('Name must be at least 4 letters and contain only letters/spaces');
+      }
+    }
+  }
+}
+function weekDaySeq(e) {
+  const range = e.range;
+  const sheet = e.source.getActiveSheet();
+
+  if (editedRange.getA1Notation() === 'C4') {
+    let startDay = editedRange.getValue();
+    const validDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    if (typeof startDay === 'string') {
+      startDay = startDay.trim().toLowerCase();
+      const normalizedDays = validDays.map(day => day.toLowerCase());
+
+      if (normalizedDays.includes(startDay)) {
+        const startIndex = normalizedDays.indexOf(startDay);
+        const sequence = [];
+
+        for (let i = 0; i < 31; i++) {
+          const nextDay = validDays[(startIndex + i) % 7];
+          sequence.push([nextDay]);
+        }
+
+        const fillRange = sheet.getRange(4, 3, 1, 31); // C4 to AG4
+        fillRange.setValues([sequence.map(day => day[0])]);
+
+        // Apply color formatting for each day
+        const defaultColor = sheet.getRange('A1').getBackground();
+        for (let col = 3; col <= 33; col++) {
+          const dayValue = sheet.getRange(4, col).getValue().toLowerCase();
+          const rangeToColor = sheet.getRange(4, col, 153); // Rows 4 to 156
+
+          let color = defaultColor;
+          if (dayValue === 'sat' || dayValue === 'sun') {
+            color = '#FFF9C4'; // Light yellow
+          } else if (dayValue === 'wed') {
+            color = '#ea9999'; // Light red
+          }
+
+          rangeToColor.setBackground(color);
+        }
+      }
+    }
+  }
+}
+function validateDateFormatCell(e) {
+  const range = e.range;
+  const sheet = e.source.getActiveSheet();
+
+  const col = range.getColumn();
+  const row = range.getRow();
+
+  // Only validate if cell is within AP6:AQ153
+  if (col < 42 || col > 43 || row < 6 || row > 153) return;
+
+  const cellValue = range.getValue();
+  const cellA1 = range.getA1Notation();
+
+  // Skip empty cells
+  if (!cellValue) return;
+
+  // Check if it's a valid Date object
+  if (Object.prototype.toString.call(cellValue) !== '[object Date]' || isNaN(cellValue.getTime())) {
+    range.setBackground('#FFCCCC');
+    SpreadsheetApp.getActiveSpreadsheet().toast(`❌ Invalid date in ${cellA1}. Use format like "5 Nov 2025"`);
+    return;
+  }
+
+  // Format the date and compare with original input
+  const expectedFormat = Utilities.formatDate(cellValue, Session.getScriptTimeZone(), 'd MMM yyyy');
+  const originalInput = range.getDisplayValue().trim();
+
+  if (originalInput !== expectedFormat) {
+    range.setBackground('#FFCCCC');
+    SpreadsheetApp.getActiveSpreadsheet().toast(`❌ Wrong format in ${cellA1}. Use exactly "5 Nov 2025"`);
+  } else {
+    range.setBackground(null); // Reset background if valid
+  }
+}
+
+function handleCheckboxLogic(sheet, row, col) {
+  if (row < 6 || row > 156 || col < 45 || col > 50) return;
+
+  const dayClicked = sheet.getRange(5, col).getValue();
+  const isChecked = sheet.getRange(row, col).getValue() === true;
+
+  const headers = sheet.getRange(4, 3, 1, 31).getValues()[0];
+  headers.forEach((header, i) => {
+    if (header === dayClicked) {
+      const targetCell = sheet.getRange(row, i + 3);
+      const currentValue = targetCell.getValue();
+      const isSafeToUpdate = currentValue === '' || currentValue === 'a';
+      if (isSafeToUpdate) {
+        targetCell.setValue(isChecked ? 'a' : '');
+      }
+    }
+  });
+
+  const checkboxValues = sheet.getRange(row, 45, 1, 6).getValues()[0];
+  const checkedCount = checkboxValues.filter(val => val === true).length;
+  sheet.getRange(row, 35).setValue(checkedCount * 4);
+}
+
+function formatDateRange() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const range = sheet.getRange('AO6:AP153');
+  range.setNumberFormat('d MMM yyyy'); // You can change this to 'd MMM yyyy' or any format you prefer
+}
+
+function sendPaymentDueDateAlertEmails() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const startRow = 6;
+  const endRow = 156;
+  const today = new Date();
+  const timezone = Session.getScriptTimeZone();
+  const metaSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MetaData');
+  const qrCodeUrl = metaSheet.getRange('A2').getValue();
+
+  for (let row = startRow; row <= endRow; row++) {
+    const emailSentStatus = sheet.getRange(row, 52).getValue(); // AZ
+    if (emailSentStatus === 'Sent') continue;
+
+    const expiryDate = sheet.getRange(row, 42).getValue(); // AP
+    const email = sheet.getRange(row, 51).getValue(); // AY
+    const name = sheet.getRange(row, 2).getValue().split(' ')[0]; // B
+
+    const tt = (expiryDate instanceof Date);
+    Logger.log(`Rohit Checking status = ${tt} row ${row}: expiry=${expiryDate}, email=${email}`);
+
+    if (!(expiryDate instanceof Date) || !email) continue;
+
+    const expiryMonth = expiryDate.getMonth(); // 0-based (0 = Jan)
+    const expiryYear = expiryDate.getFullYear();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    if (expiryMonth !== currentMonth || expiryYear !== currentYear) continue;
+
+    const formattedDate = Utilities.formatDate(expiryDate, timezone, 'd MMM yyyy');
+    const isExpired = expiryDate < today;
+
+    const subject = `Payment Due Date Reminder – Stroke Art Institute`;
+    const body = `
+      <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+        <p>Dear <strong>${name}</strong>,</p>
+        <p>We hope this message finds you well.</p>
+        <p>This is a gentle reminder that your payment due date ${isExpired ? 'expired' : 'is expiring'} on <strong>${formattedDate}</strong>.</p>
+        <p>Kindly make the payment at the earliest to ensure uninterrupted participation in your classes and share the screenshot on the number given below. 👇</p>
+        <p><strong>Paytm No.: 9911869831 (Sunil Chawla)</strong></p>
+        <p><strong>ScreenShot No.: 9711271461 (Naina Singh)</strong></p>
+        <p>Thank you for your prompt attention.</p>
+        <br>
+        <p>Thank you,<br>
+        <strong>Stroke Art Institute</strong></p>
+        Naina Singh<br>
+        9711271461<br>
+        <p><img src="${qrCodeUrl}" alt="QR Code" style="width:200px; image-rendering: crisp-edges;"></p>
+      </div>
+    `;
+
+    MailApp.sendEmail({
+      to: email,
+      subject: subject,
+      htmlBody: body
+    });
+
+    sheet.getRange(row, 52).setValue('Sent'); // AZ
+    sheet.getRange(row, 53).setValue(new Date()); // BA
+  }
+
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Payment due date alert emails sent.');
+}
+
+function sendClassCompletionReminderEmails() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const startRow = 6;
+  const endRow = 156;
+  const today = new Date();
+  const metaSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('MetaData');
+  const qrCodeUrl = metaSheet.getRange('A2').getValue();
+
+  for (let row = startRow; row <= endRow; row++) {
+    const emailSentStatus = sheet.getRange(row, 55).getValue(); // BC
+    if (emailSentStatus === 'Sent') continue;
+
+    const expiryDate = sheet.getRange(row, 42).getValue(); // AP
+    const email = sheet.getRange(row, 51).getValue(); // AY
+    const name = sheet.getRange(row, 2).getValue().split(' ')[0]; // B
+
+    if (!(expiryDate instanceof Date) || !email) continue;
+
+    const expiryMonth = expiryDate.getMonth(); // 0-based (0 = Jan)
+    const expiryYear = expiryDate.getFullYear();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    if (expiryMonth !== currentMonth || expiryYear !== currentYear) continue;
+
+    const subject = `Class Completion Reminder – Stroke Art Institute`;
+    const body = `
+      <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+        <p>Dear <strong>${name}</strong>,</p>
+        <p>This is a kind reminder to complete all your pending classes before the end of this month.</p>
+        <p>Please note that no extension will be provided, and any remaining classes after the month ends will be considered null (0).<br></p>
+        <p>We request you to schedule your classes accordingly to ensure full utilization.<br></p>
+        <p>Thank you for your cooperation.</p>
+        <br>
+        <p>Thank you,<br>
+        <strong>Stroke Art Institute</strong></p>
+        Naina Singh<br>
+        9711271461<br>
+        <p><img src="${qrCodeUrl}" alt="QR Code" style="width:200px; image-rendering: crisp-edges;"></p>
+      </div>
+    `;
+
+    MailApp.sendEmail({
+      to: email,
+      subject: subject,
+      htmlBody: body
+    });
+
+    sheet.getRange(row, 55).setValue('Sent'); // BC
+    sheet.getRange(row, 56).setValue(new Date()); // BD
+  }
+
+  SpreadsheetApp.getActiveSpreadsheet().toast('✅ Class Completion reminder emails sent.');
+}
+function sendTransactionConfirmationMail(e) {
+  const editedRange = e.range;
+  // Send transaction confirmation email if BB is checked
+  const row = editedRange.getRow();
+  const sheet = e.source.getActiveSheet();
+  const metaSheet = e.source.getSheetByName('MetaData');
+
+  const name = sheet.getRange(row, 2).getValue().split(' ')[0]; // First name from column B
+  const email = sheet.getRange(row, 51).getValue(); // AY
+  let amount = sheet.getRange(row, 37).getValue(); // AK
+  const transactionDate = sheet.getRange(row, 41).getValue(); // AO
+  const paymentMethod = sheet.getRange(row, 43).getValue(); // AQ
+  let dueAmount = sheet.getRange(row, 44).getValue(); // AR
+  const validTill = sheet.getRange(row, 42).getValue(); // AP
+
+  const checkboxValues = sheet.getRange(row, 45, 1, 6).getValues()[0]; // AS to AX
+  const dayHeaders = sheet.getRange(5, 45, 1, 6).getValues()[0];
+  const enrolledDays = dayHeaders.filter((day, i) => checkboxValues[i] === true);
+
+  const whatsappLink = metaSheet.getRange('A1').getValue();
+  const qrCodeUrl = metaSheet.getRange('A2').getValue();
+
+  // Validate required fields
+  const missingFields = [];
+  if (!email) missingFields.push('Email (AY)');
+  if (!amount) {
+    amount = sheet.getRange(row, 36).getValue(); // AJ
+    if (!amount) {
+      missingFields.push('Amount (AJ) or (AK)');
+    }
+  }
+  if (!transactionDate) missingFields.push('Transaction Date (AO)');
+  if (!paymentMethod) missingFields.push('Payment Method (AQ)');
+  dueAmount = (dueAmount) ? '₹'+ dueAmount : '--';
+  if (!validTill) missingFields.push('Valid Till (AP)');
+  if (enrolledDays.length === 0) missingFields.push('Enrolled Days (AS–AX)');
+  if (!whatsappLink) missingFields.push('WhatsApp Link (MetaData!A1)');
+  if (!qrCodeUrl) missingFields.push('QR Code Note (MetaData!A2)');
+  if (missingFields.length > 0) {
+    const errorMsg = `❌ Email not sent. Missing: ${missingFields.join(', ')}`;
+    SpreadsheetApp.getActiveSpreadsheet().toast(errorMsg);
+    return;
+  }
+  const formattedTransactionDate = Utilities.formatDate(new Date(transactionDate), Session.getScriptTimeZone(), 'd MMM yyyy');
+  const formattedValidTill = Utilities.formatDate(new Date(validTill), Session.getScriptTimeZone(), 'd MMM yyyy');
+
+  const subject = `Transaction Confirmation – Stroke Art Institute`;
+  const htmlBody = `
+      <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+        <p>Dear <strong>${name}</strong>,</p>
+        <p>You have successfully completed the transaction with Stroke Art Institute. Below are the details:</p>
+
+<table style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px; width: 100%; max-width: 600px;">
+  <thead>
+    <tr style="background-color: #f2f2f2;">
+      <th style="padding: 8px; border: 1px solid #ccc; text-align: left;" colspan="2">Transaction Summary</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding: 6px; border: 1px solid #ccc; background-color: #E6F7FF;"><strong>Transaction Amount:</strong></td>
+      <td style="padding: 6px; border: 1px solid #ccc;">₹ ${amount}</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px; border: 1px solid #ccc; background-color: #E6F7FF;"><strong>Transaction Date:</strong></td>
+      <td style="padding: 6px; border: 1px solid #ccc;">${formattedTransactionDate}</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px; border: 1px solid #ccc; background-color: #E6F7FF;"><strong>Payment Validity:</strong></td>
+      <td style="padding: 6px; border: 1px solid #ccc;">${formattedValidTill}</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px; border: 1px solid #ccc; background-color: #E6F7FF;"><strong>Payment Method:</strong></td>
+      <td style="padding: 6px; border: 1px solid #ccc;">${paymentMethod}</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px; border: 1px solid #ccc; background-color: #E6F7FF;"><strong>Due Amount:</strong></td>
+      <td style="padding: 6px; border: 1px solid #ccc;">${dueAmount}</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px; border: 1px solid #ccc; background-color: #E6F7FF;"><strong>Number of Enrolled Days in a Week:</strong></td>
+      <td style="padding: 6px; border: 1px solid #ccc;">${enrolledDays.length}</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px; border: 1px solid #ccc; background-color: #E6F7FF;"><strong>Enrolled Days:</strong></td>
+      <td style="padding: 6px; border: 1px solid #ccc;">${enrolledDays.join(' ')}</td>
+    </tr>
+  </tbody>
+</table>
+        <br>
+        <p>Please note that no extension will be provided, and any remaining classes after the month ends will be considered null (0).<br></p>
+        <p><br>For any queries, please contact <strong>Naina Singh</strong>.</p>
+        <p>You can join our WhatsApp group if you have not already using the link below:<br>
+        <a href="${whatsappLink}" target="_blank">${whatsappLink}</a></p>
+        <br>
+        <p>Warm Regards,<br>
+        <strong>Stroke Art Institute</strong><br>
+        Naina Singh<br>
+        9711271461</p>
+        <p><img src="${qrCodeUrl}" alt="QR Code" style="width:200px; image-rendering: crisp-edges;"></p>
+      </div>
+    `;
+
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: subject,
+      htmlBody: htmlBody
+    });
+    SpreadsheetApp.getActiveSpreadsheet().toast(`✅ Confirmation email sent to ${name}`);
+  }
+  catch (err) {
+    SpreadsheetApp.getActiveSpreadsheet().toast(`❌ Failed to send email: ${err.message}`);
+  }
+}
+
+
+
