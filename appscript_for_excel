@@ -1,4 +1,4 @@
-//Version 4.0.3
+//Version 4.0.4
 //for trigger installation
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
@@ -474,6 +474,7 @@ function sendTransactionConfirmationMail(e) {
   const name = sheet.getRange(row, 2).getValue().split(' ')[0]; // First name from column B
   const email = sheet.getRange(row, 51).getValue(); // AY
   let amount = sheet.getRange(row, 37).getValue(); // AK
+  let course = sheet.getRange(row, 57).getValue(); // BE
   const transactionDate = sheet.getRange(row, 41).getValue(); // AO
   const paymentMethod = sheet.getRange(row, 43).getValue(); // AQ
   let dueAmount = sheet.getRange(row, 44).getValue(); // AR
@@ -495,6 +496,7 @@ function sendTransactionConfirmationMail(e) {
       missingFields.push('Amount (AJ) or (AK)');
     }
   }
+  if (!course) missingFields.push('Course Enrolled (BE)');
   if (!transactionDate) missingFields.push('Transaction Date (AO)');
   if (!paymentMethod) missingFields.push('Payment Method (AQ)');
   dueAmount = (dueAmount) ? '₹'+ dueAmount : '--';
@@ -551,12 +553,16 @@ function sendTransactionConfirmationMail(e) {
       <td style="padding: 6px; border: 1px solid #ccc; background-color: #E6F7FF;"><strong>Enrolled Days:</strong></td>
       <td style="padding: 6px; border: 1px solid #ccc;">${enrolledDays.join(' ')}</td>
     </tr>
+    <tr>
+      <td style="padding: 6px; border: 1px solid #ccc; background-color: #E6F7FF;"><strong>Enrolled Course:</strong></td>
+      <td style="padding: 6px; border: 1px solid #ccc;">${course}</td>
+    </tr>
   </tbody>
 </table>
         <br>
         <p>Please note that no extension will be provided, and any remaining classes after the month ends will be considered null (0).<br></p>
         <p><br>For any queries, please contact <strong>Naina Singh</strong>.</p>
-        <p>You can join our WhatsApp group if you have not already using the link below:<br>
+        <p>Please join our WhatsApp group if you have not already using the link below:<br>
         <a href="${whatsappLink}" target="_blank">${whatsappLink}</a></p>
         <br>
         <p>Warm Regards,<br>
