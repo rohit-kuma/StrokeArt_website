@@ -1,4 +1,4 @@
-//Version 4.0.4
+//Version 4.0.5
 //for trigger installation
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
@@ -190,7 +190,7 @@ function onEdit(e) {
   /*If checbox are set, 'a' is written*/
   const sheet = e.source.getActiveSheet();
   const editedRange = e.range;
-  
+
   handleCheckboxLogic(sheet, editedRange.getRow(), editedRange.getColumn());
 }
 
@@ -333,7 +333,7 @@ function validateDateFormatCell(e) {
     range.setBackground('#FFCCCC');
     SpreadsheetApp.getActiveSpreadsheet().toast(`❌ Wrong format in ${cellA1}. Use exactly "5 Nov 2025"`);
   }
-  else{
+  else {
     const defaultColor = e.source.getActiveSheet().getRange('A1').getBackground();
     range.setBackground(defaultColor);
   }
@@ -499,7 +499,7 @@ function sendTransactionConfirmationMail(e) {
   if (!course) missingFields.push('Course Enrolled (BE)');
   if (!transactionDate) missingFields.push('Transaction Date (AO)');
   if (!paymentMethod) missingFields.push('Payment Method (AQ)');
-  dueAmount = (dueAmount) ? '₹'+ dueAmount : '--';
+  dueAmount = (dueAmount) ? '₹' + dueAmount : '--';
   if (!validTill) missingFields.push('Valid Till (AP)');
   if (enrolledDays.length === 0) missingFields.push('Enrolled Days (AS–AX)');
   if (!whatsappLink) missingFields.push('WhatsApp Link (MetaData!A1)');
@@ -585,6 +585,123 @@ function sendTransactionConfirmationMail(e) {
     SpreadsheetApp.getActiveSpreadsheet().toast(`❌ Failed to send email: ${err.message}`);
   }
 }
+function onDefaulterButtonClick() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+
+  const names = sheet.getRange("B6:B152").getValues().flat();
+  const attendanceData = sheet.getRange("C6:AG152").getValues(); // Current month attendance
+  const paymentData = sheet.getRange("AP6:AP152").getValues().flat(); // Payment validity dates
+
+  // Get last 3 months dynamically
+  const today = new Date();
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const currentMonthIndex = today.getMonth(); // 0-based
+  const monthsToCheck = [];
+
+  for (let i = 1; i <= 3; i++) {
+    const index = (currentMonthIndex - i + 12) % 12;
+    monthsToCheck.push(monthNames[index]);
+  }
+
+  Logger.log("Months to check: " + monthsToCheck.join(", "));
+
+  const defaulterMaps = {};
+
+  monthsToCheck.forEach(month => {
+    Logger.log(`\nProcessing month: ${month}`);
+    const map = {};
+
+    names.forEach((name, i) => {
+      const paymentText = paymentData[i];
+      const paymentStr = String(paymentText);
+
+      if (!paymentStr.includes(month)) {
+        Logger.log(`  Skipped: Payment does not include ${month}`);
+        return;
+      }
+
+      const attendanceRow = attendanceData[i];
+      let isPresent = false;
+      for (let cell of attendanceRow) {
+        if (String(cell).trim().toUpperCase() === "P") {
+          isPresent = true;
+          break;
+        }
+      }
+
+      Logger.log(`  ✅ Included: ${name} marked as ${isPresent ? "Present" : "Absent"}`);
+      map[name] = isPresent ? "Present" : "Absent";
+    });
+
+    defaulterMaps[month] = map;
+  });
+
+
+  // Create or clear defaulter_list sheet
+  let defaulterSheet = ss.getSheetByName("defaulter_list");
+  if (!defaulterSheet) {
+    defaulterSheet = ss.insertSheet("defaulter_list");
+  } else {
+    defaulterSheet.clear();
+  }
+
+  // Write maps to sheet
+  let row = 1;
+  for (const month of monthsToCheck) {
+    defaulterSheet.getRange(row, 1).setValue(`Month: ${month}`);
+    row++;
+    defaulterSheet.getRange(row, 1, 1, 2).setValues([["Name", "Attendance"]]);
+    row++;
+
+    const map = defaulterMaps[month];
+    for (const [name, status] of Object.entries(map)) {
+      defaulterSheet.getRange(row, 1, 1, 2).setValues([[name, status]]);
+      row++;
+    }
+
+    row++; // Blank line between months
+  }
+  // Format the defaulter_list sheet
+  const lastRow = defaulterSheet.getLastRow();
+  const fullRange = defaulterSheet.getRange(1, 1, lastRow, 2);
+  fullRange.setBorder(true, true, true, true, true, true);
+  fullRange.setHorizontalAlignment("center");
+
+  // Bold headers and month titles
+  for (let r = 1; r <= lastRow; r++) {
+    const cell = defaulterSheet.getRange(r, 1);
+    const value = cell.getValue();
+    if (typeof value === "string" && value.startsWith("Month:")) {
+      cell.setFontWeight("bold");
+      defaulterSheet.getRange(r + 1, 1, 1, 2).setFontWeight("bold"); // Header row
+    }
+  }
+
+  // Apply conditional formatting to both columns
+  const statusRange = defaulterSheet.getRange(1, 2, lastRow, 1); // Attendance column
+  const nameRange = defaulterSheet.getRange(1, 1, lastRow, 1);   // Name column
+  const rules = defaulterSheet.getConditionalFormatRules();
+
+  const greenRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Present")
+    .setBackground("#c6efce") // Light green
+    .setFontColor("#006100")  // Dark green
+    .setRanges([statusRange, nameRange])
+    .build();
+
+  const redRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("Absent")
+    .setBackground("#ffc7ce") // Light red
+    .setFontColor("#9c0006")  // Dark red
+    .setRanges([statusRange, nameRange])
+    .build();
+
+  rules.push(greenRule);
+  rules.push(redRule);
+  defaulterSheet.setConditionalFormatRules(rules);
 
 
 
+  Logger.log("Defaulter list generation complete.");
+}
