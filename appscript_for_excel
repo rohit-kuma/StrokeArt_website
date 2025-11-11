@@ -1,4 +1,4 @@
-//Version 4.0.5
+//Version 4.0.6
 //for trigger installation
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
@@ -590,55 +590,38 @@ function onDefaulterButtonClick() {
   const sheet = ss.getActiveSheet();
 
   const names = sheet.getRange("B6:B152").getValues().flat();
-  const attendanceData = sheet.getRange("C6:AG152").getValues(); // Current month attendance
-  const paymentData = sheet.getRange("AP6:AP152").getValues().flat(); // Payment validity dates
+  const attendanceData = sheet.getRange("C6:AG152").getValues();
+  const paymentData = sheet.getRange("AP6:AP152").getValues().flat();
+  const dueData = sheet.getRange("AR6:AR152").getValues().flat();
+  const emailData = sheet.getRange("AY6:AY152").getValues().flat();
 
-  // Get last 3 months dynamically
   const today = new Date();
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const currentMonthIndex = today.getMonth(); // 0-based
+  const currentMonthIndex = today.getMonth();
   const monthsToCheck = [];
 
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= 6; i++) {
     const index = (currentMonthIndex - i + 12) % 12;
     monthsToCheck.push(monthNames[index]);
   }
 
-  Logger.log("Months to check: " + monthsToCheck.join(", "));
-
   const defaulterMaps = {};
-
   monthsToCheck.forEach(month => {
-    Logger.log(`\nProcessing month: ${month}`);
     const map = {};
-
     names.forEach((name, i) => {
-      const paymentText = paymentData[i];
-      const paymentStr = String(paymentText);
+      const paymentDate = new Date(String(paymentData[i]));
+      const targetMonthIndex = monthNames.indexOf(month);
+      const targetYear = currentMonthIndex - monthsToCheck.length < 0 ? today.getFullYear() - 1 : today.getFullYear();
 
-      if (!paymentStr.includes(month)) {
-        Logger.log(`  Skipped: Payment does not include ${month}`);
-        return;
-      }
+      if (paymentDate.getMonth() !== targetMonthIndex || paymentDate.getFullYear() !== targetYear) return;
 
       const attendanceRow = attendanceData[i];
-      let isPresent = false;
-      for (let cell of attendanceRow) {
-        if (String(cell).trim().toUpperCase() === "P") {
-          isPresent = true;
-          break;
-        }
-      }
-
-      Logger.log(`  ✅ Included: ${name} marked as ${isPresent ? "Present" : "Absent"}`);
+      const isPresent = attendanceRow.some(cell => String(cell).trim().toUpperCase() === "P");
       map[name] = isPresent ? "Present" : "Absent";
     });
-
     defaulterMaps[month] = map;
   });
 
-
-  // Create or clear defaulter_list sheet
   let defaulterSheet = ss.getSheetByName("defaulter_list");
   if (!defaulterSheet) {
     defaulterSheet = ss.insertSheet("defaulter_list");
@@ -646,62 +629,85 @@ function onDefaulterButtonClick() {
     defaulterSheet.clear();
   }
 
-  // Write maps to sheet
   let row = 1;
   for (const month of monthsToCheck) {
-    defaulterSheet.getRange(row, 1).setValue(`Month: ${month}`);
-    row++;
-    defaulterSheet.getRange(row, 1, 1, 2).setValues([["Name", "Attendance"]]);
+    const map = defaulterMaps[month];
+    const startRow = row;
+
+    // Month title
+    defaulterSheet.getRange(row, 1, 1, 4)
+      .merge()
+      .setValue(`Month: ${month}`)
+      .setFontWeight("bold")
+      .setFontSize(12)
+      .setBackground("#cfe2f3")
+      .setFontColor("#0b5394")
+      .setHorizontalAlignment("center");
     row++;
 
-    const map = defaulterMaps[month];
+    // Header row
+    defaulterSheet.getRange(row, 1, 1, 4)
+      .setValues([["Name", "Attendance", "DUE", "EMAIL"]])
+      .setFontWeight("bold")
+      .setBackground("#d9ead3")
+      .setFontColor("#274e13")
+      .setHorizontalAlignment("center");
+    row++;
+
+    // Data rows
     for (const [name, status] of Object.entries(map)) {
-      defaulterSheet.getRange(row, 1, 1, 2).setValues([[name, status]]);
+      const due = dueData[names.indexOf(name)];
+      const email = emailData[names.indexOf(name)];
+      defaulterSheet.getRange(row, 1, 1, 4).setValues([[name, status, due, email]]);
       row++;
+    }
+
+    // Zebra striping
+    for (let r = startRow + 2; r < row; r++) {
+      const bg = r % 2 === 0 ? "#ffffff" : "#f9f9f9";
+      defaulterSheet.getRange(r, 1, 1, 4).setBackground(bg);
     }
 
     row++; // Blank line between months
   }
-  // Format the defaulter_list sheet
+
   const lastRow = defaulterSheet.getLastRow();
-  const fullRange = defaulterSheet.getRange(1, 1, lastRow, 2);
-  fullRange.setBorder(true, true, true, true, true, true);
+  const fullRange = defaulterSheet.getRange(1, 1, lastRow, 4);
+  fullRange.setBorder(true, true, true, true, true, true, "black", SpreadsheetApp.BorderStyle.SOLID);
   fullRange.setHorizontalAlignment("center");
 
-  // Bold headers and month titles
-  for (let r = 1; r <= lastRow; r++) {
-    const cell = defaulterSheet.getRange(r, 1);
-    const value = cell.getValue();
-    if (typeof value === "string" && value.startsWith("Month:")) {
-      cell.setFontWeight("bold");
-      defaulterSheet.getRange(r + 1, 1, 1, 2).setFontWeight("bold"); // Header row
-    }
-  }
+  // Conditional formatting
+  const rules = [];
 
-  // Apply conditional formatting to both columns
-  const statusRange = defaulterSheet.getRange(1, 2, lastRow, 1); // Attendance column
-  const nameRange = defaulterSheet.getRange(1, 1, lastRow, 1);   // Name column
-  const rules = defaulterSheet.getConditionalFormatRules();
+  const statusRange = defaulterSheet.getRange(1, 2, lastRow, 1);
+  const nameRange = defaulterSheet.getRange(1, 1, lastRow, 1);
+  const dueRange = defaulterSheet.getRange(1, 3, lastRow, 1);
 
-  const greenRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Present")
-    .setBackground("#c6efce") // Light green
-    .setFontColor("#006100")  // Dark green
-    .setRanges([statusRange, nameRange])
-    .build();
+  rules.push(
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo("Present")
+      .setBackground("#c6efce")
+      .setFontColor("#006100")
+      .setRanges([statusRange, nameRange])
+      .build(),
 
-  const redRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenTextEqualTo("Absent")
-    .setBackground("#ffc7ce") // Light red
-    .setFontColor("#9c0006")  // Dark red
-    .setRanges([statusRange, nameRange])
-    .build();
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo("Absent")
+      .setBackground("#ffc7ce")
+      .setFontColor("#9c0006")
+      .setRanges([statusRange, nameRange])
+      .build(),
 
-  rules.push(greenRule);
-  rules.push(redRule);
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenDateBefore(new Date())
+      .setBackground("#f4cccc")
+      .setFontColor("#990000")
+      .setRanges([dueRange])
+      .build()
+  );
+
   defaulterSheet.setConditionalFormatRules(rules);
-
-
+  defaulterSheet.autoResizeColumns(1, 4);
 
   Logger.log("Defaulter list generation complete.");
 }
