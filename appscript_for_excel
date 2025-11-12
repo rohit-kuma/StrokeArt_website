@@ -1,4 +1,4 @@
-//Version 4.0.6
+//Version 4.0.7
 //for trigger installation
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
@@ -169,6 +169,18 @@ function onEditHandler(e) {
     } else {
       ui.alert('✅ Send cancelled.');
     }
+  }
+
+  //****************************************************************************************Date 12 Nov : Access all the google sheet to check the defaulter
+  const editedColumn = e.range.getColumn();
+  const editedRow = e.range.getRow();
+  const newValue = String(e.value).trim().toUpperCase();
+
+  // ✅ Attendance check trigger
+  if (editedColumn === 44 && editedRow >= 6 && editedRow <= 152 && newValue === "CHECK") {
+    Logger.log(`🟢 Triggered checkAttendanceHistoryForRow(${editedRow}) via onEditHandler`);
+    checkAttendanceHistoryForRow(editedRow);
+    return; // Exit early if attendance logic is triggered
   }
 }
 
@@ -600,7 +612,7 @@ function onDefaulterButtonClick() {
   const currentMonthIndex = today.getMonth();
   const monthsToCheck = [];
 
-  for (let i = 1; i <= 6; i++) {
+  for (let i = 1; i <= 7; i++) {
     const index = (currentMonthIndex - i + 12) % 12;
     monthsToCheck.push(monthNames[index]);
   }
@@ -710,4 +722,71 @@ function onDefaulterButtonClick() {
   defaulterSheet.autoResizeColumns(1, 4);
 
   Logger.log("Defaulter list generation complete.");
+}
+//****************************************************************************************Date 12 Nov : Access all the google sheet to check the defaulter
+function checkAttendanceHistoryForRow(rowIndex) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheets()[0];
+  const metaSheet = ss.getSheetByName("MetaData");
+
+  const monthOrder = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const fullMonth = sheet.getRange("C3").getValue().toString().trim().toUpperCase();
+  const currentMonth = fullMonth.substring(0, 3); // "NOVEMBER" → "NOV"
+  const currentMonthIndex = monthOrder.indexOf(currentMonth);
+
+  if (currentMonthIndex === -1) {
+    Logger.log(`⚠️ Unrecognized current month: ${fullMonth}`);
+    return;
+  }
+
+  const name = sheet.getRange(rowIndex, 2).getValue().toString().trim(); // Column B
+  Logger.log(`\n🔍 Row ${rowIndex} — Name: ${name}, Current Month: ${currentMonth}`);
+
+  const metaData = metaSheet.getRange("B1:C").getValues().filter(row => row[0] && row[1]);
+  const monthToIdMap = Object.fromEntries(metaData.map(([url, mon]) => [mon.trim().toUpperCase(), extractSheetId(url)]));
+
+  const eligibleMonths = Object.keys(monthToIdMap).filter(mon => {
+    const idx = monthOrder.indexOf(mon);
+    return idx !== -1 && idx < currentMonthIndex;
+  });
+
+  Logger.log("📅 Eligible months before current: " + eligibleMonths.join(", "));
+
+  let monthWiseCounts = [];
+
+  for (const month of eligibleMonths) {
+    const sheetId = monthToIdMap[month];
+    if (!sheetId) {
+      Logger.log(`⚠️ Sheet ID not found for month: ${month}`);
+      continue;
+    }
+
+    try {
+      const otherSheet = SpreadsheetApp.openById(sheetId);
+      const tab = otherSheet.getSheets()[0];
+      const otherNames = tab.getRange("B6:B152").getValues().flat();
+      const matchIndex = otherNames.findIndex(n => n && n.toString().trim() === name);
+
+      if (matchIndex === -1) {
+        Logger.log(`❌ ${name} not found in ${month} sheet`);
+        continue;
+      }
+
+      const presentCount = tab.getRange(matchIndex + 6, 34).getValue(); // Column AH
+      Logger.log(`✅ Found ${name} in ${month} — AH value (P count): ${presentCount}`);
+      monthWiseCounts.push(`${month}: ${presentCount}`);
+
+    } catch (err) {
+      Logger.log(`❗ Error accessing sheet for ${month}: ${err}`);
+    }
+  }
+
+  const resultText = monthWiseCounts.length > 0 ? monthWiseCounts.join(", ") : "No data";
+  sheet.getRange(rowIndex, 44).setValue(resultText); // Column AR
+  Logger.log(`📝 Written to AR${rowIndex}: ${resultText}`);
+}
+
+function extractSheetId(url) {
+  const match = url.match(/\/d\/([a-zA-Z0-9-_]+)\//);
+  return match ? match[1] : null;
 }
