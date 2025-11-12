@@ -754,6 +754,9 @@ function checkAttendanceHistoryForRow(rowIndex) {
 
   let monthWiseCounts = [];
 
+  const attendanceCol = 34; // AH
+  const paymentDateCol = 42; // AP
+
   for (const month of eligibleMonths) {
     const sheetId = monthToIdMap[month];
     if (!sheetId) {
@@ -772,9 +775,12 @@ function checkAttendanceHistoryForRow(rowIndex) {
         continue;
       }
 
-      const presentCount = tab.getRange(matchIndex + 6, 34).getValue(); // Column AH
-      Logger.log(`✅ Found ${name} in ${month} — AH value (P count): ${presentCount}`);
-      monthWiseCounts.push(`${month}: ${presentCount}`);
+      const attendanceCount = tab.getRange(matchIndex + 6, attendanceCol).getValue();
+      const paymentDateRaw = tab.getRange(matchIndex + 6, paymentDateCol).getValue();
+      const formattedDate = paymentDateRaw ? String(paymentDateRaw).trim() : "NULL";
+
+      Logger.log(`✅ ${month} — P count: ${attendanceCount}, Date: ${formattedDate}`);
+      monthWiseCounts.push(`${month}: ${attendanceCount}: ${formattedDate}`);
 
     } catch (err) {
       Logger.log(`❗ Error accessing sheet for ${month}: ${err}`);
