@@ -1,4 +1,4 @@
-//Version 4.0.8
+//Version 4.0.9
 //for trigger installation
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
@@ -15,18 +15,6 @@ function onOpen() {
     .addItem('Reset Attendance', 'confirmResetAttendance')
     .addToUi();
   //Reset Attendance End
-
-  // Auto-install if not already present
-  const triggers = ScriptApp.getProjectTriggers();
-  const isInstalled = triggers.some(trigger =>
-    trigger.getHandlerFunction() === 'onEditHandler' &&
-    trigger.getEventType() === ScriptApp.EventType.ON_EDIT
-  );
-
-  if (!isInstalled) {
-    installTriggers(); // Automatically installs the trigger
-    SpreadsheetApp.getActiveSpreadsheet().toast('✅ Trigger auto-installed on open');
-  }
 }
 
 //Reset Attendance Start
@@ -87,15 +75,7 @@ function installTriggers() {
     trigger.getEventType() === ScriptApp.EventType.ON_EDIT
   );
 
-  const logSheetName = 'TriggerLog';
-  let logSheet = ss.getSheetByName(logSheetName);
-  if (!logSheet) {
-    logSheet = ss.insertSheet(logSheetName);
-    logSheet.appendRow(['Timestamp', 'User', 'Status']);
-  }
-
   if (alreadyInstalled) {
-    logSheet.getRange('C1').setValue('Trigger Active ✅');
     ui.alert('⚠️ Trigger already installed.\n\nStatus updated in TriggerLog.');
     return;
   }
@@ -105,10 +85,6 @@ function installTriggers() {
     .forSpreadsheet(ss)
     .onEdit()
     .create();
-
-  // Log installation
-  logSheet.appendRow([new Date(), Session.getActiveUser().getEmail(), 'Trigger Installed']);
-  logSheet.getRange('C1').setValue('Trigger Active ✅');
 
   // Confirmation dialog
   ui.alert('✅ Trigger installed successfully!\n\nYour sheet is now ready to send emails on checkbox edits.');
@@ -792,7 +768,7 @@ function checkAttendanceHistoryForRow(rowIndex, targetColumn) {
   }
 
   const resultText = monthWiseCounts.length > 0 ? monthWiseCounts.join(",   ") : "🔴";
-  sheet.getRange(rowIndex, targetColumn).setValue(resultText); 
+  sheet.getRange(rowIndex, targetColumn).setValue(resultText);
   Logger.log(`📝 Written to ${rowIndex}: ${resultText}`);
 }
 
@@ -814,4 +790,170 @@ function checkAllRowsToBG() {
       Logger.log(`❗ Error in row ${row}: ${err}`);
     }
   }
+}
+//****************************************************************************** 12 NOV GRAPH*********//
+function generateMonthlyGraphDataWithLogs() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const metaSheet = ss.getSheetByName("MetaData");
+
+  // Delete existing 'Graph' sheet if it exists
+  const existingGraphSheet = ss.getSheetByName("Graph");
+  if (existingGraphSheet) {
+    ss.deleteSheet(existingGraphSheet);
+    Logger.log("🧹 Deleted old 'Graph' sheet.");
+  }
+
+  // Create a fresh 'Graph' sheet
+  const graphSheet = ss.insertSheet("Graph");
+  Logger.log("📄 Created new 'Graph' sheet.");
+
+  Logger.log("📌 Starting monthly graph data generation...");
+
+  if (!metaSheet) {
+    Logger.log("❌ MetaData sheet not found.");
+    return;
+  }
+
+  const rawMeta = metaSheet.getRange("B1:C12").getValues();
+  Logger.log(`📋 Raw MetaData rows: ${rawMeta.length}`);
+
+  const monthMap = {
+    JANUARY: "JAN", FEBRUARY: "FEB", MARCH: "MAR", APRIL: "APR",
+    MAY: "MAY", JUNE: "JUN", JULY: "JUL", AUGUST: "AUG",
+    SEPTEMBER: "SEP", OCTOBER: "OCT", NOVEMBER: "NOV", DECEMBER: "DEC"
+  };
+
+  const normalizeMonth = (raw) => {
+    const cleaned = raw.toString().trim().toUpperCase();
+    return monthMap[cleaned] || cleaned.substring(0, 3);
+  };
+
+  const monthOrder = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const results = [];
+
+  for (let i = 0; i < rawMeta.length; i++) {
+    const [url, rawMonth] = rawMeta[i];
+    if (!url || !rawMonth) {
+      Logger.log(`⚠️ Skipping row ${i + 6} — missing URL or month`);
+      continue;
+    }
+
+    const month = normalizeMonth(rawMonth);
+    Logger.log(`🔍 Processing month: ${month}, URL: ${url}`);
+
+    if (!monthOrder.includes(month)) {
+      Logger.log(`❌ Invalid month label: ${rawMonth} → normalized to ${month}`);
+      continue;
+    }
+
+    try {
+      const sheet = SpreadsheetApp.openByUrl(url).getSheets()[0];
+      const data = sheet.getRange(6, 2, 147, 36).getValues(); // B to AJ
+
+      let studentCount = 0;
+      let totalClasses = 0;
+      let totalRevenue = 0;
+
+      for (let r = 0; r < data.length; r++) {
+        const row = data[r];
+        const name = row[0];
+        if (!name) {
+          Logger.log(`⛔ Empty name at row ${r + 6} — stopping scan for ${month}`);
+          break;
+        }
+
+        studentCount++;
+        const classes = Number(row[32]) || 0; // AH = column 34
+        const rawRevenue = row[34];           // AJ = column 36
+        const cleanedRevenue = typeof rawRevenue === "string"
+          ? Number(rawRevenue.replace(/[^\d.]/g, ""))
+          : Number(rawRevenue);
+
+        totalRevenue += cleanedRevenue || 0;
+        totalClasses += classes;
+        Logger.log(`👤 ${name} — Classes: ${classes}, Raw Revenue: ${row[35]}, Parsed: ${Number(row[35])} , cleanedRevenue:${cleanedRevenue} `);
+      }
+      // Cap totalRevenue to 6 digits
+      if (totalRevenue > 999999) {
+        totalRevenue = 199999;
+      }
+
+      Logger.log(`✅ ${month} — Students: ${studentCount}, Classes: ${totalClasses}, Revenue: ${totalRevenue}`);
+      results.push([month, studentCount, totalClasses, totalRevenue]);
+
+    } catch (err) {
+      Logger.log(`❗ Error accessing sheet for ${month}: ${err}`);
+    }
+  }
+
+  // Sort results by month order
+  results.sort((a, b) => monthOrder.indexOf(a[0]) - monthOrder.indexOf(b[0]));
+
+  Logger.log("📊 Final sorted results:\n" + JSON.stringify(results));
+
+  // Write to Graph sheet
+  graphSheet.clear();
+  graphSheet.getRange("A1:D1").setValues([["Month", "Students", "Classes", "Revenue"]]);
+  graphSheet.getRange(2, 1, results.length, 4).setValues(results);
+  styleGraphSheet(graphSheet, results.length);
+
+  Logger.log("📈 Writing chart data to 'Graph' sheet...");
+  createGraphCharts(graphSheet, results.length);
+}
+function createGraphCharts(sheet, rowCount) {
+  const chartConfigs = [
+    { title: "Monthly Student Count", col: 2 },
+    { title: "Monthly Class Count", col: 3 },
+    { title: "Monthly Revenue", col: 4 }
+  ];
+
+  let chartColumn = 1;
+  const chartRow = rowCount + 3;
+
+  for (const config of chartConfigs) {
+    const chart = sheet.newChart()
+      .setChartType(Charts.ChartType.COLUMN)
+      .addRange(sheet.getRange(1, 1, rowCount + 1, 1)) // Month
+      .addRange(sheet.getRange(1, config.col, rowCount + 1, 1)) // Y-axis
+      .setPosition(chartRow, chartColumn, 0, 0)
+      .setOption("title", config.title)
+      .setOption("legend", { position: "none" })
+      .setOption("colors", ["#3366CC"])
+      .setOption("backgroundColor", "#F3F6F9") // soft gray
+      .setOption("dataLabel", true) // show values on top
+      .build();
+
+    sheet.insertChart(chart);
+    chartColumn += 6;
+  }
+
+  Logger.log("📊 Charts styled and inserted side by side.");
+}
+
+function styleGraphSheet(graphSheet, rowCount) {
+  const headerRange = graphSheet.getRange("A1:D1");
+  const dataRange = graphSheet.getRange(2, 1, rowCount, 4);
+
+  // Header styling
+  headerRange.setFontWeight("bold")
+             .setBackground("#1F4E78") // deep blue
+             .setFontColor("white")
+             .setHorizontalAlignment("center");
+
+  // Zebra striping for rows
+  for (let r = 2; r <= rowCount + 1; r++) {
+    const bgColor = (r % 2 === 0) ? "#F3F6F9" : "#FFFFFF"; // light gray and white
+    graphSheet.getRange(r, 1, 1, 4).setBackground(bgColor);
+  }
+
+  // Borders
+  graphSheet.getRange(1, 1, rowCount + 1, 4).setBorder(true, true, true, true, true, true);
+
+  // Column widths
+  graphSheet.setColumnWidths(1, 4, 120);
+
+  // Alignment
+  graphSheet.getRange("A2:D").setHorizontalAlignment("center").setVerticalAlignment("middle");
+
+  Logger.log("🎨 Applied aesthetic styling to 'Graph' sheet.");
 }
