@@ -720,7 +720,11 @@ function onDefaulterButtonClick() {
 
   defaulterSheet.setConditionalFormatRules(rules);
   defaulterSheet.autoResizeColumns(1, 4);
-
+  // Optionally set a wider column width for D (e.g., 400 pixels)
+  defaulterSheet.setColumnWidth(3, 100);
+  defaulterSheet.setColumnWidth(4, 800);
+  // Align column D text to the left
+  defaulterSheet.getRange("D3:D252").setHorizontalAlignment("left");
   Logger.log("Defaulter list generation complete.");
 }
 //****************************************************************************************Date 12 Nov : Access all the google sheet to check the defaulter
@@ -777,19 +781,19 @@ function checkAttendanceHistoryForRow(rowIndex, targetColumn) {
 
       const attendanceCount = tab.getRange(matchIndex + 6, attendanceCol).getValue();
       const paymentDateRaw = tab.getRange(matchIndex + 6, paymentDateCol).getValue();
-      const formattedDate = paymentDateRaw ? String(paymentDateRaw).trim() : "NULL";
+      const formattedDate = paymentDateRaw ? String(paymentDateRaw).trim().substring(0, 15) : "🔴";
 
       Logger.log(`✅ ${month} — P count: ${attendanceCount}, Date: ${formattedDate}`);
-      monthWiseCounts.push(`${month}: ${attendanceCount}: ${formattedDate}`);
+      monthWiseCounts.push(`[${month}: ${attendanceCount}: ${formattedDate}]`);
 
     } catch (err) {
       Logger.log(`❗ Error accessing sheet for ${month}: ${err}`);
     }
   }
 
-  const resultText = monthWiseCounts.length > 0 ? monthWiseCounts.join(", ") : "No data";
-  sheet.getRange(rowIndex, targetColumn).setValue(resultText); // Default Column AR
-  Logger.log(`📝 Written to AR${rowIndex}: ${resultText}`);
+  const resultText = monthWiseCounts.length > 0 ? monthWiseCounts.join(",   ") : "🔴";
+  sheet.getRange(rowIndex, targetColumn).setValue(resultText); 
+  Logger.log(`📝 Written to ${rowIndex}: ${resultText}`);
 }
 
 function extractSheetId(url) {
