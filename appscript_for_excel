@@ -1,4 +1,4 @@
-//Version 4.0.7
+//Version 4.0.8
 //for trigger installation
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
@@ -179,7 +179,7 @@ function onEditHandler(e) {
   // ✅ Attendance check trigger
   if (editedColumn === 44 && editedRow >= 6 && editedRow <= 152 && newValue === "CHECK") {
     Logger.log(`🟢 Triggered checkAttendanceHistoryForRow(${editedRow}) via onEditHandler`);
-    checkAttendanceHistoryForRow(editedRow);
+    checkAttendanceHistoryForRow(editedRow, 44); // Writes to AR
     return; // Exit early if attendance logic is triggered
   }
 }
@@ -605,7 +605,7 @@ function onDefaulterButtonClick() {
   const attendanceData = sheet.getRange("C6:AG152").getValues();
   const paymentData = sheet.getRange("AP6:AP152").getValues().flat();
   const dueData = sheet.getRange("AR6:AR152").getValues().flat();
-  const emailData = sheet.getRange("AY6:AY152").getValues().flat();
+  const historyData = sheet.getRange("BG6:BG152").getValues().flat();
 
   const today = new Date();
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -659,7 +659,7 @@ function onDefaulterButtonClick() {
 
     // Header row
     defaulterSheet.getRange(row, 1, 1, 4)
-      .setValues([["Name", "Attendance", "DUE", "EMAIL"]])
+      .setValues([["Name", "Attendance", "DUE", "HISTORY"]])
       .setFontWeight("bold")
       .setBackground("#d9ead3")
       .setFontColor("#274e13")
@@ -669,8 +669,8 @@ function onDefaulterButtonClick() {
     // Data rows
     for (const [name, status] of Object.entries(map)) {
       const due = dueData[names.indexOf(name)];
-      const email = emailData[names.indexOf(name)];
-      defaulterSheet.getRange(row, 1, 1, 4).setValues([[name, status, due, email]]);
+      const history = historyData[names.indexOf(name)];
+      defaulterSheet.getRange(row, 1, 1, 4).setValues([[name, status, due, history]]);
       row++;
     }
 
@@ -724,7 +724,7 @@ function onDefaulterButtonClick() {
   Logger.log("Defaulter list generation complete.");
 }
 //****************************************************************************************Date 12 Nov : Access all the google sheet to check the defaulter
-function checkAttendanceHistoryForRow(rowIndex) {
+function checkAttendanceHistoryForRow(rowIndex, targetColumn) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheets()[0];
   const metaSheet = ss.getSheetByName("MetaData");
@@ -788,11 +788,26 @@ function checkAttendanceHistoryForRow(rowIndex) {
   }
 
   const resultText = monthWiseCounts.length > 0 ? monthWiseCounts.join(", ") : "No data";
-  sheet.getRange(rowIndex, 44).setValue(resultText); // Column AR
+  sheet.getRange(rowIndex, targetColumn).setValue(resultText); // Default Column AR
   Logger.log(`📝 Written to AR${rowIndex}: ${resultText}`);
 }
 
 function extractSheetId(url) {
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)\//);
   return match ? match[1] : null;
+}
+
+function checkAllRowsToBG() {
+  const startRow = 6;
+  const endRow = 152;
+  const targetColumn = 59; // Column BG
+
+  for (let row = startRow; row <= endRow; row++) {
+    try {
+      Logger.log(`🔁 Processing row ${row}`);
+      checkAttendanceHistoryForRow(row, targetColumn);
+    } catch (err) {
+      Logger.log(`❗ Error in row ${row}: ${err}`);
+    }
+  }
 }
